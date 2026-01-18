@@ -3,16 +3,30 @@
 import { useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Clock, DollarSign, Activity, ExternalLink, Share2 } from 'lucide-react';
+import { ArrowLeft, Clock, DollarSign, Activity, ExternalLink, Share2, Sparkles, BookmarkCheck } from 'lucide-react';
 import Link from 'next/link';
 import { PriceChart } from '@/components/charts';
 import { StrategyBuilder } from '@/components/strategy';
+import { PortfolioSimulator } from '@/components/simulator';
 import { ScannerPanel, ClusterBuilder } from '@/components/scanner';
-import { GeminiBrief, SedaComposer } from '@/components/research';
+import { GeminiBrief, SedaComposer, ResearchModal } from '@/components/research';
+import {
+  CrowdWisdom,
+  HistoricalAccuracy,
+  CounterArguments,
+  ResolutionTracker,
+  ConfidenceMeter,
+  ELI5Explainer,
+  QuickCompare,
+  CorrelationMap,
+  SocialSentiment,
+  SmartAlerts,
+} from '@/components/insights';
 import { Button, Card, Badge, Tabs, TabsList, TabsTrigger, TabsContent, Skeleton } from '@/components/ui';
-import { useMarketDetail } from '@/hooks';
+import { useMarketDetail, useSavedResearch } from '@/hooks';
 import { useStrategy } from '@/context';
 import { formatPrice, formatCompactNumber, formatRelativeDate, formatPriceChange } from '@/lib/formatters';
+import { getPolymarketUrl } from '@/lib/polymarket';
 import {
   GeminiBrief as GeminiBriefType,
   GeminiError,
@@ -41,6 +55,13 @@ export default function MarketDetailPage() {
 
   // Strategy analysis for Seda composer
   const [strategyAnalysis, setStrategyAnalysis] = useState<StrategyAnalysis | null>(null);
+
+  // Research modal state
+  const [showResearchModal, setShowResearchModal] = useState(false);
+
+  // Saved research
+  const { isMarketSaved } = useSavedResearch();
+  const isSaved = marketId ? isMarketSaved(marketId) : false;
 
   // Context
   const {
@@ -180,6 +201,12 @@ export default function MarketDetailPage() {
             <div className="flex items-center gap-2 mb-2">
               <Badge variant="default">{market.category}</Badge>
               {market.active && !market.closed && <Badge variant="live">LIVE</Badge>}
+              {isSaved && (
+                <Badge variant="secondary" className="bg-warning/20 text-warning">
+                  <BookmarkCheck size={12} className="mr-1" />
+                  Saved
+                </Badge>
+              )}
             </div>
             <h1 className="text-2xl font-bold text-text-primary mb-2">{market.question}</h1>
             <div className="flex items-center gap-4 text-sm text-text-secondary">
@@ -200,6 +227,16 @@ export default function MarketDetailPage() {
 
           {/* Quick actions */}
           <div className="flex items-center gap-2">
+            {/* Research Button - Primary Action */}
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setShowResearchModal(true)}
+              className="bg-gradient-to-r from-bullish to-bullish-hover"
+            >
+              <Sparkles size={14} className="mr-1" />
+              Research This
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -214,9 +251,19 @@ export default function MarketDetailPage() {
               {clusterMarkets.some((m) => m.id === market.id) ? 'Remove from Cluster' : 'Add to Cluster'}
             </Button>
             <a
-              href={`https://polymarket.com/event/${market.slug}`}
+              href={getPolymarketUrl(market)}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(e) => {
+                // Debug: log market data for URL generation
+                console.log('[Polymarket Link] Market data:', {
+                  id: market?.id,
+                  slug: market?.slug,
+                  conditionId: market?.conditionId,
+                  eventSlug: market?.eventSlug,
+                  generatedUrl: getPolymarketUrl(market),
+                });
+              }}
             >
               <Button variant="secondary" size="sm">
                 <ExternalLink size={14} className="mr-1" />
@@ -327,6 +374,53 @@ export default function MarketDetailPage() {
           <p className="text-sm text-text-secondary">{market.description}</p>
         </Card>
       )}
+
+      {/* Smart Insights Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="mt-8"
+      >
+        <h2 className="text-xl font-bold text-text-primary mb-4 flex items-center gap-2">
+          <Sparkles size={20} className="text-bullish" />
+          Smart Decision Tools
+        </h2>
+        
+        {/* Top Row: Alerts + Simulator + ELI5 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+          <SmartAlerts market={market} />
+          <PortfolioSimulator market={market} />
+          <ELI5Explainer market={market} />
+        </div>
+
+        {/* Second Row: Crowd Wisdom + Historical + Counter Arguments */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+          <CrowdWisdom market={market} priceHistory={priceHistory} />
+          <HistoricalAccuracy market={market} />
+          <CounterArguments market={market} />
+        </div>
+
+        {/* Third Row: Resolution Tracker + Confidence + Social */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+          <ResolutionTracker market={market} />
+          <ConfidenceMeter market={market} priceHistory={priceHistory} />
+          <SocialSentiment market={market} />
+        </div>
+
+        {/* Fourth Row: Compare + Correlations */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <QuickCompare market={market} />
+          <CorrelationMap market={market} />
+        </div>
+      </motion.div>
+
+      {/* Research Modal */}
+      <ResearchModal
+        isOpen={showResearchModal}
+        onClose={() => setShowResearchModal(false)}
+        market={market}
+      />
     </div>
   );
 }

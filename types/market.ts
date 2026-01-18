@@ -9,6 +9,7 @@ export interface Market {
   category: string;
   endDate: string;
   volume: number;
+  volume24hr?: number;
   liquidity: number;
   outcomes: MarketOutcome[];
   createdAt: string;
@@ -20,6 +21,25 @@ export interface Market {
   imageUrl?: string;
   description?: string;
   tags?: string[];
+  // Additional fields from Polymarket API
+  featured?: boolean;
+  new?: boolean;
+  restricted?: boolean;
+  resolutionSource?: string;
+  startDate?: string;
+  marketMakerAddress?: string;
+  // Price change fields
+  priceChange1h?: number;
+  priceChange24h?: number;
+  priceChange7d?: number;
+  // Orderbook data
+  bestBid?: number;
+  bestAsk?: number;
+  lastTradePrice?: number;
+  // Internal field for URL generation
+  conditionId?: string;
+  // Event slug for nested URL format: /event/{eventSlug}/{marketSlug}
+  eventSlug?: string;
 }
 
 export interface MarketOutcome {

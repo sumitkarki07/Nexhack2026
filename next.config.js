@@ -9,6 +9,10 @@ const nextConfig = {
       },
     ],
   },
+  // Fix for framer-motion vendor chunk issue in Next.js 14
+  experimental: {
+    optimizePackageImports: ['framer-motion'],
+  },
 };
 
 module.exports = nextConfig;

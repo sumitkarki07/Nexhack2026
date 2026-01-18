@@ -6,6 +6,10 @@ export {
   fetchCurrentPrice,
   fetchOrderbook,
   fetchTags,
+  fetchRecentTrades,
+  fetchMarketStats,
+  testConnection,
+  getPolymarketUrl,
   clearCache,
   getDataMode,
 } from './client';

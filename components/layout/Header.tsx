@@ -2,19 +2,21 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Activity, BarChart3, FileText, Menu, Settings, X } from 'lucide-react';
+import { Activity, BarChart3, FileText, Menu, Settings, X, Bookmark } from 'lucide-react';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui';
-
-const navItems = [
-  { href: '/', label: 'Markets', icon: Activity },
-  { href: '/research', label: 'Research', icon: FileText },
-];
+import { useSavedResearch } from '@/hooks';
 
 export function Header() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { count: savedCount } = useSavedResearch();
+
+  const navItems = [
+    { href: '/', label: 'Markets', icon: Activity },
+    { href: '/research', label: 'Research', icon: FileText, badge: savedCount > 0 ? savedCount : null },
+  ];
 
   return (
     <header className="fixed top-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border">
@@ -35,7 +37,7 @@ export function Header() {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1">
-            {navItems.map(({ href, label, icon: Icon }) => {
+            {navItems.map(({ href, label, icon: Icon, badge }) => {
               const isActive = pathname === href || (href !== '/' && pathname.startsWith(href));
               return (
                 <Link
@@ -56,6 +58,11 @@ export function Header() {
                   <span className="relative z-10 flex items-center gap-2">
                     <Icon size={16} />
                     {label}
+                    {badge && (
+                      <span className="px-1.5 py-0.5 text-xs font-bold bg-bullish text-white rounded-full min-w-[18px] text-center">
+                        {badge > 9 ? '9+' : badge}
+                      </span>
+                    )}
                   </span>
                 </Link>
               );
@@ -89,7 +96,7 @@ export function Header() {
             className="md:hidden border-t border-border bg-background"
           >
             <nav className="px-4 py-4 space-y-1">
-              {navItems.map(({ href, label, icon: Icon }) => {
+              {navItems.map(({ href, label, icon: Icon, badge }) => {
                 const isActive = pathname === href || (href !== '/' && pathname.startsWith(href));
                 return (
                   <Link
@@ -103,6 +110,11 @@ export function Header() {
                   >
                     <Icon size={18} />
                     {label}
+                    {badge && (
+                      <span className="px-1.5 py-0.5 text-xs font-bold bg-bullish text-white rounded-full min-w-[18px] text-center">
+                        {badge > 9 ? '9+' : badge}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

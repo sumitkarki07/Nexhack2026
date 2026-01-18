@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Clock, Plus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Plus, Search, Sparkles } from 'lucide-react';
 import { Market } from '@/types';
 import { Badge, Button } from '@/components/ui';
 import { Sparkline } from './Sparkline';
@@ -12,6 +12,7 @@ interface MarketCardProps {
   market: Market;
   sparklineData?: number[];
   onAddToCluster?: (market: Market) => void;
+  onResearch?: (market: Market) => void;
   showAddButton?: boolean;
   index?: number;
 }
@@ -20,6 +21,7 @@ export function MarketCard({
   market,
   sparklineData = [],
   onAddToCluster,
+  onResearch,
   showAddButton = false,
   index = 0,
 }: MarketCardProps) {
@@ -120,12 +122,30 @@ export function MarketCard({
             </div>
           </div>
 
-          {/* End date */}
-          <div className="flex items-center gap-1 mt-3 pt-3 border-t border-border">
-            <Clock size={12} className="text-text-secondary" />
-            <span className="text-xs text-text-secondary">
-              Ends {formatRelativeDate(market.endDate)}
-            </span>
+          {/* Footer with end date and research button */}
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
+            <div className="flex items-center gap-1">
+              <Clock size={12} className="text-text-secondary" />
+              <span className="text-xs text-text-secondary">
+                Ends {formatRelativeDate(market.endDate)}
+              </span>
+            </div>
+            
+            {/* Research button */}
+            {onResearch && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onResearch(market);
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-bullish bg-bullish/10 hover:bg-bullish/20 rounded-lg transition-all duration-200 hover:scale-105"
+                title="Research this market"
+              >
+                <Sparkles size={12} />
+                <span>Research</span>
+              </button>
+            )}
           </div>
         </div>
       </Link>

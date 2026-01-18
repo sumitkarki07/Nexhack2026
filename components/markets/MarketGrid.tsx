@@ -8,6 +8,7 @@ interface MarketGridProps {
   markets: Market[];
   loading?: boolean;
   onAddToCluster?: (market: Market) => void;
+  onResearch?: (market: Market) => void;
   showAddButtons?: boolean;
   sparklineData?: Record<string, number[]>;
 }
@@ -16,6 +17,7 @@ export function MarketGrid({
   markets,
   loading = false,
   onAddToCluster,
+  onResearch,
   showAddButtons = false,
   sparklineData = {},
 }: MarketGridProps) {
@@ -46,6 +48,7 @@ export function MarketGrid({
           market={market}
           sparklineData={sparklineData[market.id] || []}
           onAddToCluster={onAddToCluster}
+          onResearch={onResearch}
           showAddButton={showAddButtons}
           index={index}
         />

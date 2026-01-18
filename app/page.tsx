@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Zap, X, Scan, RefreshCw, AlertCircle, Radio } from 'lucide-react';
 import { MarketGrid, MarketSearch, CategoryPills } from '@/components/markets';
 import { ClusterBuilder, ScannerPanel } from '@/components/scanner';
+import { ResearchModal } from '@/components/research';
 import { Button, Card, Badge, Modal } from '@/components/ui';
 import { useMarkets } from '@/hooks';
 import { useStrategy } from '@/context';
@@ -20,6 +21,10 @@ export default function MarketsPage() {
   const [clusterMode, setClusterMode] = useState(false);
   const [showScannerModal, setShowScannerModal] = useState(false);
   const [scannerLoading, setScannerLoading] = useState(false);
+
+  // Research modal state
+  const [showResearchModal, setShowResearchModal] = useState(false);
+  const [researchMarket, setResearchMarket] = useState<Market | null>(null);
 
   // Fetch markets from live Polymarket API
   const { markets, loading, error, total, refetch, isLive } = useMarkets({
@@ -42,6 +47,12 @@ export default function MarketsPage() {
   const handleRefresh = useCallback(() => {
     refetch(true); // Force refresh
   }, [refetch]);
+
+  // Handle research button click
+  const handleResearch = useCallback((market: Market) => {
+    setResearchMarket(market);
+    setShowResearchModal(true);
+  }, []);
 
   // Handle scan
   const handleScan = useCallback(async (cluster: MarketCluster, config: ScannerConfig) => {
@@ -256,6 +267,7 @@ export default function MarketsPage() {
         markets={markets}
         loading={loading}
         onAddToCluster={clusterMode ? addToCluster : undefined}
+        onResearch={handleResearch}
         showAddButtons={clusterMode}
         sparklineData={sparklineData}
       />
@@ -289,6 +301,16 @@ export default function MarketsPage() {
           loading={scannerLoading}
         />
       </Modal>
+
+      {/* Research modal */}
+      <ResearchModal
+        isOpen={showResearchModal}
+        onClose={() => {
+          setShowResearchModal(false);
+          setResearchMarket(null);
+        }}
+        market={researchMarket}
+      />
     </div>
   );
 }

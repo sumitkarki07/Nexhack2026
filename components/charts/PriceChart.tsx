@@ -68,6 +68,38 @@ export function PriceChart({ data, range, onRangeChange, loading }: PriceChartPr
     );
   }
 
+  // Handle empty data state
+  if (data.length === 0) {
+    return (
+      <div className="bg-surface border border-border rounded-xl p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <span className="text-2xl font-bold text-text-primary">—</span>
+          </div>
+          <div className="flex gap-1 bg-background rounded-lg p-1">
+            {TIME_RANGES.map((r) => (
+              <Button
+                key={r}
+                variant={range === r ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => onRangeChange(r)}
+                className="px-3 py-1.5 text-xs"
+              >
+                {r}
+              </Button>
+            ))}
+          </div>
+        </div>
+        <div className="h-64 flex items-center justify-center text-text-secondary">
+          <div className="text-center">
+            <p className="mb-2">No price history available for this time range</p>
+            <p className="text-xs">Try a different time range or check back later</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-surface border border-border rounded-xl p-4">
       {/* Header */}

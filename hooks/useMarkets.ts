@@ -37,7 +37,19 @@ export function useMarkets(options: UseMarketsOptions = {}): UseMarketsReturn {
   const [isLive, setIsLive] = useState(true);
   const fetchIdRef = useRef(0);
 
-  const fetchMarkets = useCallback(async (resetOffset = true, forceRefresh = false) => {
+  // Store current offset in ref for loadMore
+  const offsetRef = useRef(0);
+  offsetRef.current = offset;
+
+  const fetchMarkets = useCallback(async (
+    currentQuery: string | undefined,
+    currentCategory: string | undefined,
+    currentSortBy: string,
+    currentSortOrder: string,
+    currentLimit: number,
+    resetOffset: boolean,
+    forceRefresh: boolean
+  ) => {
     if (!enabled) return;
 
     const fetchId = ++fetchIdRef.current;
@@ -46,13 +58,13 @@ export function useMarkets(options: UseMarketsOptions = {}): UseMarketsReturn {
       setLoading(true);
       setError(null);
 
-      const currentOffset = resetOffset ? 0 : offset;
+      const currentOffset = resetOffset ? 0 : offsetRef.current;
       const params = new URLSearchParams();
-      if (query) params.set('query', query);
-      if (category && category !== 'all') params.set('category', category);
-      params.set('sortBy', sortBy);
-      params.set('sortOrder', sortOrder);
-      params.set('limit', limit.toString());
+      if (currentQuery) params.set('query', currentQuery);
+      if (currentCategory && currentCategory !== 'all') params.set('category', currentCategory);
+      params.set('sortBy', currentSortBy);
+      params.set('sortOrder', currentSortOrder);
+      params.set('limit', currentLimit.toString());
       params.set('offset', currentOffset.toString());
       
       // Force cache refresh
@@ -113,22 +125,22 @@ export function useMarkets(options: UseMarketsOptions = {}): UseMarketsReturn {
         setLoading(false);
       }
     }
-  }, [enabled, query, category, sortBy, sortOrder, limit, offset]);
+  }, [enabled]);
 
   // Initial fetch and refetch on param changes
   useEffect(() => {
-    fetchMarkets(true, false);
-  }, [query, category, sortBy, sortOrder, limit, enabled]);
+    fetchMarkets(query, category, sortBy, sortOrder, limit, true, false);
+  }, [fetchMarkets, query, category, sortBy, sortOrder, limit]);
 
   const refetch = useCallback((forceRefresh = false) => {
-    fetchMarkets(true, forceRefresh);
-  }, [fetchMarkets]);
+    fetchMarkets(query, category, sortBy, sortOrder, limit, true, forceRefresh);
+  }, [fetchMarkets, query, category, sortBy, sortOrder, limit]);
 
   const loadMore = useCallback(() => {
     if (!loading && hasMore) {
-      fetchMarkets(false, false);
+      fetchMarkets(query, category, sortBy, sortOrder, limit, false, false);
     }
-  }, [fetchMarkets, loading, hasMore]);
+  }, [fetchMarkets, query, category, sortBy, sortOrder, limit, loading, hasMore]);
 
   return {
     markets,

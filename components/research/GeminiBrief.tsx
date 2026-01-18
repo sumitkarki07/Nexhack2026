@@ -12,6 +12,8 @@ import {
   HelpCircle,
   ExternalLink,
   RefreshCw,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { GeminiBrief as GeminiBriefType, GeminiError, Market } from '@/types';
 import { Button, Card, Badge, BriefSkeleton } from '@/components/ui';
@@ -34,10 +36,11 @@ export function GeminiBrief({
   onRetry,
 }: GeminiBriefProps) {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    checklist: true,
-    variables: true,
-    cases: true,
-    debate: true,
+    checklist: false,
+    variables: false,
+    cases: false,
+    debate: false,
+    sources: false,
   });
 
   const toggleSection = (section: string) => {
@@ -100,11 +103,13 @@ export function GeminiBrief({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-4"
-    >
+    <div className="flex flex-col h-full max-h-[calc(100vh-300px)]">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-3 overflow-y-auto pr-2 flex-1"
+        style={{ scrollbarWidth: 'thin' }}
+      >
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -125,22 +130,35 @@ export function GeminiBrief({
       <Card padding="sm">
         <button
           onClick={() => toggleSection('checklist')}
-          className="w-full flex items-center justify-between text-left"
+          className="w-full flex items-center justify-between text-left hover:opacity-80 transition-opacity"
         >
           <div className="flex items-center gap-2">
             <CheckCircle size={16} className="text-success" />
             <h4 className="text-sm font-medium text-text-primary">Resolution Checklist</h4>
+            <Badge variant="secondary" size="sm" className="ml-1 text-xs">
+              {brief.resolutionChecklist.length}
+            </Badge>
           </div>
+          {expandedSections.checklist ? (
+            <ChevronUp size={16} className="text-text-secondary" />
+          ) : (
+            <ChevronDown size={16} className="text-text-secondary" />
+          )}
         </button>
         {expandedSections.checklist && (
-          <ul className="mt-3 space-y-2">
+          <motion.ul
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mt-3 space-y-2 overflow-hidden"
+          >
             {brief.resolutionChecklist.map((item, i) => (
               <li key={i} className="flex items-start gap-2 text-sm text-text-secondary">
                 <span className="text-bullish mt-0.5">•</span>
-                {item}
+                <span>{item}</span>
               </li>
             ))}
-          </ul>
+          </motion.ul>
         )}
       </Card>
 
@@ -148,25 +166,38 @@ export function GeminiBrief({
       <Card padding="sm">
         <button
           onClick={() => toggleSection('variables')}
-          className="w-full flex items-center justify-between text-left"
+          className="w-full flex items-center justify-between text-left hover:opacity-80 transition-opacity"
         >
           <div className="flex items-center gap-2">
             <TrendingUp size={16} className="text-bullish" />
             <h4 className="text-sm font-medium text-text-primary">Key Variables</h4>
+            <Badge variant="secondary" size="sm" className="ml-1 text-xs">
+              {brief.keyVariables.length}
+            </Badge>
           </div>
+          {expandedSections.variables ? (
+            <ChevronUp size={16} className="text-text-secondary" />
+          ) : (
+            <ChevronDown size={16} className="text-text-secondary" />
+          )}
         </button>
         {expandedSections.variables && (
-          <div className="mt-3 space-y-2">
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mt-3 space-y-2 overflow-hidden"
+          >
             {brief.keyVariables.map((variable, i) => (
               <div
                 key={i}
                 className="flex items-center justify-between bg-background rounded-lg p-2"
               >
-                <div>
-                  <p className="text-sm text-text-primary">{variable.name}</p>
-                  <p className="text-xs text-text-secondary">{variable.currentState}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-text-primary font-medium">{variable.name}</p>
+                  <p className="text-xs text-text-secondary line-clamp-2">{variable.currentState}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                   {impactIcons[variable.directionOfImpact]}
                   <Badge
                     variant={
@@ -183,7 +214,7 @@ export function GeminiBrief({
                 </div>
               </div>
             ))}
-          </div>
+          </motion.div>
         )}
       </Card>
 
@@ -191,27 +222,37 @@ export function GeminiBrief({
       <Card padding="sm">
         <button
           onClick={() => toggleSection('cases')}
-          className="w-full flex items-center justify-between text-left"
+          className="w-full flex items-center justify-between text-left hover:opacity-80 transition-opacity"
         >
           <h4 className="text-sm font-medium text-text-primary">Scenario Analysis</h4>
+          {expandedSections.cases ? (
+            <ChevronUp size={16} className="text-text-secondary" />
+          ) : (
+            <ChevronDown size={16} className="text-text-secondary" />
+          )}
         </button>
         {expandedSections.cases && (
-          <div className="mt-3 space-y-3">
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mt-3 space-y-3 overflow-hidden"
+          >
             <div>
-              <p className="text-xs text-text-secondary uppercase mb-1">Base Case</p>
-              <p className="text-sm text-text-primary">{brief.baseCase}</p>
+              <p className="text-xs text-text-secondary uppercase mb-1 font-medium">Base Case</p>
+              <p className="text-sm text-text-primary line-clamp-4">{brief.baseCase}</p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-success/5 border border-success/20 rounded-lg p-2">
-                <p className="text-xs text-success uppercase mb-1">Bull Case</p>
-                <p className="text-xs text-text-secondary">{brief.bullCase}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="bg-success/5 border border-success/20 rounded-lg p-2.5">
+                <p className="text-xs text-success uppercase mb-1.5 font-medium">Bull Case</p>
+                <p className="text-xs text-text-secondary line-clamp-4">{brief.bullCase}</p>
               </div>
-              <div className="bg-bearish/5 border border-bearish/20 rounded-lg p-2">
-                <p className="text-xs text-bearish uppercase mb-1">Bear Case</p>
-                <p className="text-xs text-text-secondary">{brief.bearCase}</p>
+              <div className="bg-bearish/5 border border-bearish/20 rounded-lg p-2.5">
+                <p className="text-xs text-bearish uppercase mb-1.5 font-medium">Bear Case</p>
+                <p className="text-xs text-text-secondary line-clamp-4">{brief.bearCase}</p>
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
       </Card>
 
@@ -221,13 +262,18 @@ export function GeminiBrief({
           <HelpCircle size={16} className="text-warning" />
           <h4 className="text-sm font-medium text-text-primary">What Would Change My Mind</h4>
         </div>
-        <ul className="space-y-1">
-          {brief.whatWouldChangeMyMind.map((item, i) => (
+        <ul className="space-y-1.5">
+          {brief.whatWouldChangeMyMind.slice(0, 3).map((item, i) => (
             <li key={i} className="flex items-start gap-2 text-xs text-text-secondary">
-              <span className="text-warning">→</span>
-              {item}
+              <span className="text-warning mt-0.5">→</span>
+              <span>{item}</span>
             </li>
           ))}
+          {brief.whatWouldChangeMyMind.length > 3 && (
+            <li className="text-xs text-text-secondary italic">
+              +{brief.whatWouldChangeMyMind.length - 3} more factors...
+            </li>
+          )}
         </ul>
       </Card>
 
@@ -235,53 +281,93 @@ export function GeminiBrief({
       <Card padding="sm">
         <button
           onClick={() => toggleSection('debate')}
-          className="w-full flex items-center justify-between text-left"
+          className="w-full flex items-center justify-between text-left hover:opacity-80 transition-opacity"
         >
-          <h4 className="text-sm font-medium text-text-primary">Debate Prompts</h4>
+          <div className="flex items-center gap-2">
+            <h4 className="text-sm font-medium text-text-primary">Debate Prompts</h4>
+            <Badge variant="secondary" size="sm" className="ml-1 text-xs">
+              {brief.debatePrompts.length}
+            </Badge>
+          </div>
+          {expandedSections.debate ? (
+            <ChevronUp size={16} className="text-text-secondary" />
+          ) : (
+            <ChevronDown size={16} className="text-text-secondary" />
+          )}
         </button>
         {expandedSections.debate && (
-          <ol className="mt-3 space-y-2">
+          <motion.ol
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mt-3 space-y-2 overflow-hidden"
+          >
             {brief.debatePrompts.map((prompt, i) => (
               <li key={i} className="flex items-start gap-2 text-sm text-text-secondary">
-                <span className="text-bullish font-mono">{i + 1}.</span>
-                {prompt}
+                <span className="text-bullish font-mono flex-shrink-0">{i + 1}.</span>
+                <span className="flex-1">{prompt}</span>
               </li>
             ))}
-          </ol>
+          </motion.ol>
         )}
       </Card>
 
       {/* Sources to Consult */}
       {brief.sourcesToConsult.length > 0 && (
         <Card padding="sm">
-          <h4 className="text-sm font-medium text-text-primary mb-2">Suggested Sources</h4>
-          <div className="space-y-2">
-            {brief.sourcesToConsult.map((source, i) => (
-              <div key={i} className="flex items-center justify-between bg-background rounded-lg p-2">
-                <div>
-                  <p className="text-xs text-text-primary">{source.description}</p>
-                  <p className="text-xs text-text-secondary">Type: {source.type}</p>
+          <button
+            onClick={() => toggleSection('sources')}
+            className="w-full flex items-center justify-between text-left hover:opacity-80 transition-opacity mb-2"
+          >
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-medium text-text-primary">Suggested Sources</h4>
+              <Badge variant="secondary" size="sm" className="ml-1 text-xs">
+                {brief.sourcesToConsult.length}
+              </Badge>
+            </div>
+            {expandedSections.sources ? (
+              <ChevronUp size={16} className="text-text-secondary" />
+            ) : (
+              <ChevronDown size={16} className="text-text-secondary" />
+            )}
+          </button>
+          {expandedSections.sources && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-2 overflow-hidden"
+            >
+              {brief.sourcesToConsult.map((source, i) => (
+                <div key={i} className="flex items-center justify-between bg-background rounded-lg p-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-text-primary line-clamp-1">{source.description}</p>
+                    <p className="text-xs text-text-secondary">Type: {source.type}</p>
+                  </div>
+                  {source.searchQuery && (
+                    <a
+                      href={`https://www.google.com/search?q=${encodeURIComponent(source.searchQuery)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-bullish hover:text-bullish-hover flex-shrink-0 ml-2"
+                    >
+                      <ExternalLink size={14} />
+                    </a>
+                  )}
                 </div>
-                {source.searchQuery && (
-                  <a
-                    href={`https://www.google.com/search?q=${encodeURIComponent(source.searchQuery)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-bullish hover:text-bullish-hover"
-                  >
-                    <ExternalLink size={14} />
-                  </a>
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </motion.div>
+          )}
         </Card>
       )}
 
       {/* Confidence justification */}
-      <p className="text-xs text-text-secondary italic">
-        Confidence justification: {brief.confidenceJustification}
-      </p>
-    </motion.div>
+      <div className="pt-2 border-t border-border">
+        <p className="text-xs text-text-secondary italic line-clamp-3">
+          <span className="font-medium">Confidence:</span> {brief.confidenceJustification}
+        </p>
+      </div>
+      </motion.div>
+    </div>
   );
 }

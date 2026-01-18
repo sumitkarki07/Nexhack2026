@@ -36,13 +36,72 @@ interface ConfidenceMetric {
   icon: typeof CheckCircle2;
 }
 
+/**
+ * Calculate verification status based on available data sources
+ * Strict criteria: All 4 factors must be fully verified for "verified" status
+ */
+function calculateVerificationStatus(
+  market: Market,
+  priceHistory: PricePoint[],
+  newsCount: number
+): 'verified' | 'partially_verified' | 'unverified' {
+  // Count verification factors (strict thresholds)
+  let fullyVerifiedCount = 0;
+  let partiallyVerifiedCount = 0;
+  
+  // Factor 1: News sources (at least 3 articles = verified, 1-2 = partial)
+  if (newsCount >= 3) {
+    fullyVerifiedCount += 1;
+  } else if (newsCount >= 1) {
+    partiallyVerifiedCount += 1;
+  }
+  
+  // Factor 2: Price history (at least 50 points = verified, 20-49 = partial)
+  if (priceHistory.length >= 50) {
+    fullyVerifiedCount += 1;
+  } else if (priceHistory.length >= 20) {
+    partiallyVerifiedCount += 1;
+  }
+  
+  // Factor 3: Market activity (volume > $50k = verified, $10k-$50k = partial)
+  if (market.volume >= 50000) {
+    fullyVerifiedCount += 1;
+  } else if (market.volume >= 10000) {
+    partiallyVerifiedCount += 1;
+  }
+  
+  // Factor 4: Liquidity (liquidity > $50k = verified, $10k-$50k = partial)
+  if (market.liquidity >= 50000) {
+    fullyVerifiedCount += 1;
+  } else if (market.liquidity >= 10000) {
+    partiallyVerifiedCount += 1;
+  }
+  
+  // Determine status based on verified factors (STRICT)
+  // Verified: ALL 4 factors fully verified (very strict)
+  // Partially Verified: 3+ factors fully verified OR 2+ fully + 2+ partial
+  // Otherwise: unverified
+  if (fullyVerifiedCount === 4) {
+    return 'verified'; // All 4 factors fully verified
+  } else if (fullyVerifiedCount >= 3 || (fullyVerifiedCount >= 2 && partiallyVerifiedCount >= 2)) {
+    return 'partially_verified'; // Most factors verified
+  } else {
+    return 'unverified'; // Insufficient verification
+  }
+}
+
 export function ConfidenceMeter({
   market,
   priceHistory = [],
   newsCount = 0,
-  verificationStatus = 'unverified',
+  verificationStatus,
   className = '',
 }: ConfidenceMeterProps) {
+  // Auto-calculate verification if not provided (undefined means auto-calculate)
+  const calculatedVerificationStatus = verificationStatus !== undefined 
+    ? verificationStatus 
+    : calculateVerificationStatus(market, priceHistory, newsCount);
+  
   const metrics = useMemo((): ConfidenceMetric[] => {
     const metricsList: ConfidenceMetric[] = [];
 
@@ -85,23 +144,35 @@ export function ConfidenceMeter({
     });
 
     // 4. Verification
-    const verificationScore = verificationStatus === 'verified' ? 25 : verificationStatus === 'partially_verified' ? 15 : 5;
+    const verificationScore = calculatedVerificationStatus === 'verified' ? 25 : calculatedVerificationStatus === 'partially_verified' ? 15 : 5;
+    
+    // Build verification description with details
+    const verificationFactors: string[] = [];
+    if (newsCount > 0) verificationFactors.push(`${newsCount} news source${newsCount > 1 ? 's' : ''}`);
+    if (priceHistory.length > 0) verificationFactors.push(`${priceHistory.length} price points`);
+    if (market.volume > 0) verificationFactors.push(`$${formatCompactNumber(market.volume)} volume`);
+    if (market.liquidity > 0) verificationFactors.push(`$${formatCompactNumber(market.liquidity)} liquidity`);
+    
+    const verificationDescription = calculatedVerificationStatus === 'verified' 
+      ? `All data sources verified (${verificationFactors.join(', ')})`
+      : calculatedVerificationStatus === 'partially_verified'
+      ? `Some data verified (${verificationFactors.slice(0, 2).join(', ')})`
+      : verificationFactors.length > 0
+      ? `Verification pending - ${verificationFactors.join(', ')} available`
+      : 'Verification pending - Limited data available';
+    
     metricsList.push({
       id: 'verification',
       label: 'Data Verified',
       score: verificationScore,
       maxScore: 25,
       status: verificationScore >= 20 ? 'good' : verificationScore >= 15 ? 'moderate' : 'poor',
-      description: verificationStatus === 'verified' 
-        ? 'All data sources verified'
-        : verificationStatus === 'partially_verified'
-        ? 'Some data verified'
-        : 'Verification pending',
+      description: verificationDescription,
       icon: Shield,
     });
 
     return metricsList;
-  }, [market, priceHistory, newsCount, verificationStatus]);
+  }, [market, priceHistory, newsCount, calculatedVerificationStatus]);
 
   const totalScore = metrics.reduce((sum, m) => sum + m.score, 0);
   const maxScore = metrics.reduce((sum, m) => sum + m.maxScore, 0);
@@ -244,6 +315,70 @@ export function ConfidenceMeter({
               </div>
               
               <p className="text-xs text-text-secondary">{metric.description}</p>
+              
+              {/* Show verification breakdown for verification metric */}
+              {metric.id === 'verification' && (
+                <div className="mt-2 pt-2 border-t border-border/50">
+                  <p className="text-xs text-text-secondary mb-1.5">Verification factors (strict criteria):</p>
+                  <div className="grid grid-cols-2 gap-1.5 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      {newsCount >= 3 ? (
+                        <CheckCircle2 size={12} className="text-bullish" />
+                      ) : newsCount >= 1 ? (
+                        <AlertCircle size={12} className="text-warning" />
+                      ) : (
+                        <XCircle size={12} className="text-bearish" />
+                      )}
+                      <span className={newsCount >= 3 ? 'text-bullish' : newsCount >= 1 ? 'text-warning' : 'text-text-secondary'}>
+                        News: {newsCount >= 3 ? '✓' : newsCount >= 1 ? '~' : '✗'} ({newsCount} needed: ≥3)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {priceHistory.length >= 50 ? (
+                        <CheckCircle2 size={12} className="text-bullish" />
+                      ) : priceHistory.length >= 20 ? (
+                        <AlertCircle size={12} className="text-warning" />
+                      ) : (
+                        <XCircle size={12} className="text-bearish" />
+                      )}
+                      <span className={priceHistory.length >= 50 ? 'text-bullish' : priceHistory.length >= 20 ? 'text-warning' : 'text-text-secondary'}>
+                        History: {priceHistory.length >= 50 ? '✓' : priceHistory.length >= 20 ? '~' : '✗'} ({priceHistory.length} needed: ≥50)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {market.volume >= 50000 ? (
+                        <CheckCircle2 size={12} className="text-bullish" />
+                      ) : market.volume >= 10000 ? (
+                        <AlertCircle size={12} className="text-warning" />
+                      ) : (
+                        <XCircle size={12} className="text-bearish" />
+                      )}
+                      <span className={market.volume >= 50000 ? 'text-bullish' : market.volume >= 10000 ? 'text-warning' : 'text-text-secondary'}>
+                        Volume: {market.volume >= 50000 ? '✓' : market.volume >= 10000 ? '~' : '✗'} (${formatCompactNumber(market.volume)} needed: ≥$50k)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {market.liquidity >= 50000 ? (
+                        <CheckCircle2 size={12} className="text-bullish" />
+                      ) : market.liquidity >= 10000 ? (
+                        <AlertCircle size={12} className="text-warning" />
+                      ) : (
+                        <XCircle size={12} className="text-bearish" />
+                      )}
+                      <span className={market.liquidity >= 50000 ? 'text-bullish' : market.liquidity >= 10000 ? 'text-warning' : 'text-text-secondary'}>
+                        Liquidity: {market.liquidity >= 50000 ? '✓' : market.liquidity >= 10000 ? '~' : '✗'} (${formatCompactNumber(market.liquidity)} needed: ≥$50k)
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-text-secondary mt-1.5">
+                    {calculatedVerificationStatus === 'verified' 
+                      ? '✓ All 4 factors fully verified'
+                      : calculatedVerificationStatus === 'partially_verified'
+                      ? '~ Need all 4 factors fully verified for 100% verification'
+                      : '✗ Need 3+ factors fully verified OR 2+ fully + 2+ partial'}
+                  </p>
+                </div>
+              )}
             </div>
           );
         })}

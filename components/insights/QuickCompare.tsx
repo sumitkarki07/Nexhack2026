@@ -17,6 +17,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { Card, Badge, Button, Input } from '@/components/ui';
+import { ComparisonBarChart } from '@/components/charts';
 import { formatPrice, formatCompactNumber } from '@/lib/formatters';
 import { Market } from '@/types';
 
@@ -241,35 +242,42 @@ export function QuickCompare({ market, className = '' }: QuickCompareProps) {
 
             {/* Comparison Table */}
             {comparison && (
-              <div className="bg-surface-elevated rounded-xl overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left p-2 text-xs text-text-secondary font-normal">Metric</th>
-                      <th className="text-center p-2 text-xs text-text-secondary font-normal">Current</th>
-                      <th className="text-center p-2 text-xs text-text-secondary font-normal">Compare</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {comparison.map((metric, idx) => (
-                      <tr key={metric.label} className={idx < comparison.length - 1 ? 'border-b border-border' : ''}>
-                        <td className="p-2 text-text-secondary text-xs">{metric.label}</td>
-                        <td className={`p-2 text-center font-medium ${
-                          metric.market1Better === true ? 'text-bullish' :
-                          metric.market1Better === false ? 'text-text-secondary' : 'text-text-primary'
-                        }`}>
-                          {metric.market1Value}
-                        </td>
-                        <td className={`p-2 text-center font-medium ${
-                          metric.market1Better === false ? 'text-bullish' :
-                          metric.market1Better === true ? 'text-text-secondary' : 'text-text-primary'
-                        }`}>
-                          {metric.market2Value}
-                        </td>
+              <div className="space-y-3">
+                <div className="bg-surface-elevated rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left p-2 text-xs text-text-secondary font-normal">Metric</th>
+                        <th className="text-center p-2 text-xs text-text-secondary font-normal">Current</th>
+                        <th className="text-center p-2 text-xs text-text-secondary font-normal">Compare</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {comparison.map((metric, idx) => (
+                        <tr key={metric.label} className={idx < comparison.length - 1 ? 'border-b border-border' : ''}>
+                          <td className="p-2 text-text-secondary text-xs">{metric.label}</td>
+                          <td className={`p-2 text-center font-medium ${
+                            metric.market1Better === true ? 'text-bullish' :
+                            metric.market1Better === false ? 'text-text-secondary' : 'text-text-primary'
+                          }`}>
+                            {metric.market1Value}
+                          </td>
+                          <td className={`p-2 text-center font-medium ${
+                            metric.market1Better === false ? 'text-bullish' :
+                            metric.market1Better === true ? 'text-text-secondary' : 'text-text-primary'
+                          }`}>
+                            {metric.market2Value}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Bar Chart Visualization */}
+                <div className="bg-surface-elevated rounded-xl p-3 border border-border">
+                  <ComparisonBarChart market1={market} market2={compareMarket} />
+                </div>
               </div>
             )}
 

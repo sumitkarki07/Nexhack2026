@@ -78,7 +78,11 @@ export function MarketNews({ market, className = '' }: MarketNewsProps) {
           <Newspaper size={32} className="mx-auto text-text-secondary mb-2" />
           <p className="text-sm text-text-secondary mb-1">No news articles found</p>
           <p className="text-xs text-text-secondary">
-            Configure NEWS_API_KEY in .env.local to fetch real news articles
+            {error ? (
+              <>API Error: {error}. Check server logs for details.</>
+            ) : (
+              <>No credible market-moving news found for this market. Try refreshing or check NEWS_API_KEY configuration.</>
+            )}
           </p>
         </div>
       ) : (
@@ -147,7 +151,7 @@ export function MarketNews({ market, className = '' }: MarketNewsProps) {
       {articles.length > 0 && (
         <div className="mt-4 pt-4 border-t border-border">
           <p className="text-xs text-text-secondary text-center">
-            News powered by NewsAPI.org • {articles.length} article{articles.length !== 1 ? 's' : ''} found
+            News powered by Perigon API • {articles.length} credible article{articles.length !== 1 ? 's' : ''} found
           </p>
         </div>
       )}

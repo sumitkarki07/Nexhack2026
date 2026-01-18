@@ -22,6 +22,7 @@ import {
 } from '@/components/insights';
 import { Button, Card, Badge, Tabs, TabsList, TabsTrigger, TabsContent, Skeleton } from '@/components/ui';
 import { useMarketDetail, useSavedResearch } from '@/hooks';
+import { useMarketNews } from '@/hooks/useMarketNews';
 import { useStrategy } from '@/context';
 import { formatPrice, formatCompactNumber, formatRelativeDate, formatPriceChange } from '@/lib/formatters';
 import { getPolymarketUrl } from '@/lib/polymarket';
@@ -41,6 +42,9 @@ export default function MarketDetailPage() {
   // Fetch market data
   const { market, priceHistory, loading, historyLoading, error, timeRange, setTimeRange } =
     useMarketDetail(marketId);
+
+  // Fetch news for confidence meter
+  const { articles: newsArticles } = useMarketNews(marketId);
 
   // AI brief state
   const [brief, setBrief] = useState<GeminiBriefType | null>(null);
@@ -330,7 +334,7 @@ export default function MarketDetailPage() {
               </div>
             </TabsContent>
 
-            <TabsContent value="brief">
+            <TabsContent value="brief" className="max-h-[calc(100vh-300px)] overflow-hidden flex flex-col">
               <GeminiBrief
                 brief={brief}
                 error={briefError}
@@ -374,7 +378,11 @@ export default function MarketDetailPage() {
         {/* Second Row: Crowd Wisdom + Confidence + Social Sentiment */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           <CrowdWisdom market={market} priceHistory={priceHistory} />
-          <ConfidenceMeter market={market} priceHistory={priceHistory} />
+          <ConfidenceMeter 
+            market={market} 
+            priceHistory={priceHistory} 
+            newsCount={newsArticles.length}
+          />
           <SocialSentiment market={market} />
         </div>
 

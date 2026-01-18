@@ -31,7 +31,8 @@ export default function MarketsPage() {
     query,
     category,
     sortBy,
-    limit: 50,
+    limit: 20,
+    all: true,
   });
 
   // Strategy context for cluster management

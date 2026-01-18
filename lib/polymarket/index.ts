@@ -10,8 +10,11 @@ export {
   fetchMarketStats,
   testConnection,
   getPolymarketUrl,
+  getPolymarketUrlAlternatives,
   clearCache,
   getDataMode,
+  type FetchMeta,
+  type MarketSearchResponseWithMeta,
 } from './client';
 
 export * from './cache';

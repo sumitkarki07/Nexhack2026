@@ -65,8 +65,19 @@ export function formatUSD(amount: number): string {
 /**
  * Format date relative to now
  */
-export function formatRelativeDate(date: Date | string): string {
+export function formatRelativeDate(date: Date | string | null | undefined): string {
+  // Handle null/undefined/invalid dates
+  if (!date) {
+    return 'N/A';
+  }
+
   const d = typeof date === 'string' ? new Date(date) : date;
+  
+  // Check if date is invalid
+  if (!(d instanceof Date) || isNaN(d.getTime())) {
+    return 'N/A';
+  }
+
   const now = new Date();
   const diffMs = d.getTime() - now.getTime();
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
@@ -91,8 +102,19 @@ export function formatRelativeDate(date: Date | string): string {
 /**
  * Format date as short string
  */
-export function formatShortDate(date: Date | string): string {
+export function formatShortDate(date: Date | string | null | undefined): string {
+  // Handle null/undefined/invalid dates
+  if (!date) {
+    return 'N/A';
+  }
+
   const d = typeof date === 'string' ? new Date(date) : date;
+  
+  // Check if date is invalid
+  if (!(d instanceof Date) || isNaN(d.getTime())) {
+    return 'N/A';
+  }
+
   return d.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',

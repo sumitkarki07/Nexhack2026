@@ -25,6 +25,7 @@ export function useMarkets(options: UseMarketsOptions = {}): UseMarketsReturn {
     sortBy = 'volume',
     sortOrder = 'desc',
     limit = 50,
+    all = false,
     enabled = true,
   } = options;
 
@@ -66,6 +67,11 @@ export function useMarkets(options: UseMarketsOptions = {}): UseMarketsReturn {
       params.set('sortOrder', currentSortOrder);
       params.set('limit', currentLimit.toString());
       params.set('offset', currentOffset.toString());
+      
+      // Opt-in to fetch all markets when no query is active
+      if (all && !currentQuery && (!currentCategory || currentCategory === 'all')) {
+        params.set('all', 'true');
+      }
       
       // Force cache refresh
       if (forceRefresh) {

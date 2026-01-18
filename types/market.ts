@@ -72,6 +72,7 @@ export interface MarketSearchParams {
   sortOrder?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
+  all?: boolean;
 }
 
 export interface MarketSearchResponse {

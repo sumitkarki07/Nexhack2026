@@ -68,7 +68,7 @@ export interface MarketCategory {
 export interface MarketSearchParams {
   query?: string;
   category?: string;
-  sortBy?: 'volume' | 'recent' | 'volatility' | 'change';
+  sortBy?: 'volume' | 'recent' | 'volatility' | 'change' | 'trending';
   sortOrder?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
@@ -98,6 +98,7 @@ export interface SparklineData {
 // Categories for filtering
 export const MARKET_CATEGORIES: MarketCategory[] = [
   { id: 'all', label: 'All Markets' },
+  { id: 'trending', label: 'Trending' },
   { id: 'politics', label: 'Politics' },
   { id: 'crypto', label: 'Crypto' },
   { id: 'sports', label: 'Sports' },

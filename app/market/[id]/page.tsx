@@ -212,7 +212,11 @@ export default function MarketDetailPage() {
             <div className="flex items-center gap-4 text-sm text-text-secondary">
               <span className="flex items-center gap-1">
                 <Clock size={14} />
-                Ends {formatRelativeDate(market.endDate)}
+                {(() => {
+                  const endDate = new Date(market.endDate);
+                  const hasEnded = endDate.getTime() < Date.now();
+                  return hasEnded ? 'Ended' : 'Ends';
+                })()} {formatRelativeDate(market.endDate)}
               </span>
               <span className="flex items-center gap-1">
                 <DollarSign size={14} />
@@ -325,7 +329,12 @@ export default function MarketDetailPage() {
             <TabsContent value="strategy">
               <StrategyBuilder
                 market={market}
-                onAddToResearch={setStrategyAnalysis}
+                onAddToResearch={(analysis) => {
+                  // Save strategy analysis for Seda composer
+                  setStrategyAnalysis(analysis);
+                  // Trigger AI research modal to generate research brief
+                  setShowResearchModal(true);
+                }}
               />
             </TabsContent>
 

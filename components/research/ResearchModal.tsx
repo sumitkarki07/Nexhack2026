@@ -51,27 +51,6 @@ interface NewsArticle {
   sentiment: 'positive' | 'negative' | 'neutral';
 }
 
-type VerificationStatus = 'verified' | 'partially_verified' | 'unverified' | 'pending';
-
-interface VerificationCheck {
-  id: string;
-  name: string;
-  description: string;
-  status: VerificationStatus;
-  confidence: number;
-  source: string;
-  timestamp: number;
-  details?: string;
-}
-
-interface VerificationResult {
-  overallStatus: VerificationStatus;
-  overallConfidence: number;
-  checks: VerificationCheck[];
-  verifiedAt: number;
-  sedaRequestId?: string;
-  summary: string;
-}
 
 interface ResearchResult {
   summary: string;
@@ -111,10 +90,8 @@ export function ResearchModal({ isOpen, onClose, market }: ResearchModalProps) {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ResearchResult | null>(null);
   const [marketData, setMarketData] = useState<MarketData | null>(null);
-  const [verification, setVerification] = useState<VerificationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showBeginnerMode, setShowBeginnerMode] = useState(false);
-  const [showVerificationDetails, setShowVerificationDetails] = useState(false);
   
   // Saved research hook
   const { saveResearch, isMarketSaved, removeResearch, getByMarketId } = useSavedResearch();
@@ -127,9 +104,7 @@ export function ResearchModal({ isOpen, onClose, market }: ResearchModalProps) {
       setProgress(0);
       setResult(null);
       setMarketData(null);
-      setVerification(null);
       setError(null);
-      setShowVerificationDetails(false);
     }
   }, [isOpen]);
 
@@ -225,9 +200,6 @@ export function ResearchModal({ isOpen, onClose, market }: ResearchModalProps) {
         setStep('complete');
         setResult(data.research);
         setMarketData(data.market);
-        if (data.verification) {
-          setVerification(data.verification);
-        }
       } else {
         throw new Error(data.error || 'Research generation failed');
       }
@@ -253,7 +225,7 @@ export function ResearchModal({ isOpen, onClose, market }: ResearchModalProps) {
 
   // Handle save/unsave
   const handleSaveToggle = useCallback(() => {
-    if (!market || !result || !verification) return;
+    if (!market || !result) return;
     
     if (isSaved) {
       const saved = getByMarketId(market.id);
@@ -271,10 +243,10 @@ export function ResearchModal({ isOpen, onClose, market }: ResearchModalProps) {
         confidence: result.confidence,
         summary: result.summary,
         recommendation: result.recommendation,
-        verificationStatus: verification.overallStatus,
+        verificationStatus: 'unverified',
       });
     }
-  }, [market, marketData, result, verification, isSaved, saveResearch, removeResearch, getByMarketId]);
+  }, [market, marketData, result, isSaved, saveResearch, removeResearch, getByMarketId]);
 
   if (!market) return null;
 
@@ -314,16 +286,20 @@ export function ResearchModal({ isOpen, onClose, market }: ResearchModalProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+            style={{ zIndex: 9999 }}
           />
 
-          {/* Modal */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed inset-4 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-3xl md:max-h-[90vh] bg-surface border border-border rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col"
-          >
+          {/* Modal Container - Centered */}
+          <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 10000 }}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-3xl max-h-[90vh] bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+              style={{ zIndex: 10001 }}
+            >
             {/* Header */}
             <div className="flex items-start justify-between p-4 border-b border-border bg-gradient-to-r from-bullish/5 to-transparent">
               <div className="flex-1 pr-4">
@@ -391,137 +367,6 @@ export function ResearchModal({ isOpen, onClose, market }: ResearchModalProps) {
                 </div>
               )}
 
-              {/* Seda Verification Status */}
-              {verification && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`rounded-xl p-4 border ${
-                    verification.overallStatus === 'verified'
-                      ? 'bg-success/5 border-success/20'
-                      : verification.overallStatus === 'partially_verified'
-                      ? 'bg-warning/5 border-warning/20'
-                      : 'bg-bearish/5 border-bearish/20'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${
-                        verification.overallStatus === 'verified'
-                          ? 'bg-success/10'
-                          : verification.overallStatus === 'partially_verified'
-                          ? 'bg-warning/10'
-                          : 'bg-bearish/10'
-                      }`}>
-                        {verification.overallStatus === 'verified' ? (
-                          <CheckCircle2 size={20} className="text-success" />
-                        ) : verification.overallStatus === 'partially_verified' ? (
-                          <Shield size={20} className="text-warning" />
-                        ) : (
-                          <AlertTriangle size={20} className="text-bearish" />
-                        )}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-semibold text-text-primary">
-                            Seda Verification
-                          </h3>
-                          <Badge
-                            size="sm"
-                            className={
-                              verification.overallStatus === 'verified'
-                                ? 'bg-success/10 text-success border border-success/20'
-                                : verification.overallStatus === 'partially_verified'
-                                ? 'bg-warning/10 text-warning border border-warning/20'
-                                : 'bg-bearish/10 text-bearish border border-bearish/20'
-                            }
-                          >
-                            {verification.overallStatus === 'verified'
-                              ? 'Verified'
-                              : verification.overallStatus === 'partially_verified'
-                              ? 'Partially Verified'
-                              : 'Unverified'}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-text-secondary mt-0.5">
-                          {verification.checks.filter(c => c.status === 'verified').length} of {verification.checks.length} checks passed
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-text-primary">{verification.overallConfidence}%</p>
-                        <p className="text-xs text-text-secondary">confidence</p>
-                      </div>
-                      <button
-                        onClick={() => setShowVerificationDetails(!showVerificationDetails)}
-                        className="p-2 text-text-secondary hover:text-text-primary hover:bg-border rounded-lg transition-colors"
-                      >
-                        <ChevronDown
-                          size={16}
-                          className={`transition-transform ${showVerificationDetails ? 'rotate-180' : ''}`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Verification Details */}
-                  <AnimatePresence>
-                    {showVerificationDetails && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="mt-4 pt-4 border-t border-border"
-                      >
-                        <p className="text-sm text-text-secondary mb-3">{verification.summary}</p>
-                        <div className="space-y-2">
-                          {verification.checks.map((check) => (
-                            <div
-                              key={check.id}
-                              className="flex items-center justify-between bg-background rounded-lg p-2.5"
-                            >
-                              <div className="flex items-center gap-2">
-                                {check.status === 'verified' ? (
-                                  <CheckCircle2 size={14} className="text-success" />
-                                ) : check.status === 'partially_verified' ? (
-                                  <Shield size={14} className="text-warning" />
-                                ) : (
-                                  <AlertTriangle size={14} className="text-bearish" />
-                                )}
-                                <div>
-                                  <p className="text-xs font-medium text-text-primary">{check.name}</p>
-                                  {check.details && (
-                                    <p className="text-xs text-text-secondary">{check.details}</p>
-                                  )}
-                                </div>
-                              </div>
-                              <Badge
-                                size="sm"
-                                className={`text-xs ${
-                                  check.status === 'verified'
-                                    ? 'bg-success/10 text-success'
-                                    : check.status === 'partially_verified'
-                                    ? 'bg-warning/10 text-warning'
-                                    : 'bg-bearish/10 text-bearish'
-                                }`}
-                              >
-                                {check.confidence}%
-                              </Badge>
-                            </div>
-                          ))}
-                        </div>
-                        {verification.sedaRequestId && (
-                          <p className="text-xs text-text-secondary mt-3 text-center">
-                            Request ID: {verification.sedaRequestId}
-                          </p>
-                        )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
-              )}
-
               {/* Market Overview - Always show */}
               <div className="bg-background rounded-xl p-4">
                 <h3 className="text-sm font-medium text-text-primary mb-3 flex items-center gap-2">
@@ -542,7 +387,14 @@ export function ResearchModal({ isOpen, onClose, market }: ResearchModalProps) {
                     <p className="text-lg font-bold text-text-primary">${formatCompactNumber(volume)}</p>
                   </div>
                   <div className="bg-surface rounded-lg p-3 border border-border">
-                    <p className="text-xs text-text-secondary mb-1">Ends</p>
+                    <p className="text-xs text-text-secondary mb-1">
+                      {(() => {
+                        if (!endDate) return 'Ends';
+                        const endDateObj = new Date(endDate);
+                        const hasEnded = endDateObj.getTime() < Date.now();
+                        return hasEnded ? 'Ended' : 'Ends';
+                      })()}
+                    </p>
                     <p className="text-sm font-bold text-text-primary">{formatRelativeDate(endDate)}</p>
                   </div>
                 </div>
@@ -690,51 +542,65 @@ export function ResearchModal({ isOpen, onClose, market }: ResearchModalProps) {
                             negative: 'border-l-bearish',
                             neutral: 'border-l-border',
                           };
+                          const hasValidUrl = article.url && article.url !== '#' && article.url.startsWith('http');
+                          
+                          const content = (
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-medium text-text-primary line-clamp-2 mb-1">
+                                  {article.title}
+                                </h4>
+                                {article.description && (
+                                  <p className="text-xs text-text-secondary line-clamp-2 mb-2">
+                                    {article.description}
+                                  </p>
+                                )}
+                                <div className="flex items-center gap-3 text-xs text-text-secondary">
+                                  <span className="font-medium">{article.source}</span>
+                                  <span>•</span>
+                                  <span>{new Date(article.publishedAt).toLocaleDateString()}</span>
+                                  <Badge
+                                    size="sm"
+                                    className={`text-xs ${
+                                      article.sentiment === 'positive'
+                                        ? 'bg-success/10 text-success'
+                                        : article.sentiment === 'negative'
+                                        ? 'bg-bearish/10 text-bearish'
+                                        : 'bg-border text-text-secondary'
+                                    }`}
+                                  >
+                                    {article.sentiment}
+                                  </Badge>
+                                </div>
+                              </div>
+                              {hasValidUrl && (
+                                <div className="p-1.5 text-bullish flex-shrink-0">
+                                  <ExternalLink size={16} />
+                                </div>
+                              )}
+                            </div>
+                          );
+
+                          if (hasValidUrl) {
+                            return (
+                              <a
+                                key={i}
+                                href={article.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`block bg-surface rounded-lg p-3 border border-border border-l-2 hover:border-bullish hover:bg-surface/80 transition-all cursor-pointer ${sentimentColors[article.sentiment]}`}
+                              >
+                                {content}
+                              </a>
+                            );
+                          }
+
                           return (
                             <div
                               key={i}
                               className={`bg-surface rounded-lg p-3 border border-border border-l-2 ${sentimentColors[article.sentiment]}`}
                             >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="text-sm font-medium text-text-primary line-clamp-2 mb-1">
-                                    {article.title}
-                                  </h4>
-                                  {article.description && (
-                                    <p className="text-xs text-text-secondary line-clamp-2 mb-2">
-                                      {article.description}
-                                    </p>
-                                  )}
-                                  <div className="flex items-center gap-3 text-xs text-text-secondary">
-                                    <span className="font-medium">{article.source}</span>
-                                    <span>•</span>
-                                    <span>{new Date(article.publishedAt).toLocaleDateString()}</span>
-                                    <Badge
-                                      size="sm"
-                                      className={`text-xs ${
-                                        article.sentiment === 'positive'
-                                          ? 'bg-success/10 text-success'
-                                          : article.sentiment === 'negative'
-                                          ? 'bg-bearish/10 text-bearish'
-                                          : 'bg-border text-text-secondary'
-                                      }`}
-                                    >
-                                      {article.sentiment}
-                                    </Badge>
-                                  </div>
-                                </div>
-                                {article.url && article.url !== '#' && (
-                                  <a
-                                    href={article.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="p-1.5 text-text-secondary hover:text-bullish hover:bg-bullish/10 rounded-lg transition-colors flex-shrink-0"
-                                    title="Read article"
-                                  >
-                                    <ArrowUpRight size={16} />
-                                  </a>
-                                )}
-                              </div>
+                              {content}
                             </div>
                           );
                         })}
@@ -826,7 +692,7 @@ export function ResearchModal({ isOpen, onClose, market }: ResearchModalProps) {
                 </p>
                 <div className="flex gap-2">
                   {/* Save/Bookmark Button */}
-                  {result && verification && (
+                  {result && (
                     <Button
                       variant={isSaved ? 'primary' : 'secondary'}
                       size="sm"
@@ -864,7 +730,8 @@ export function ResearchModal({ isOpen, onClose, market }: ResearchModalProps) {
                 </div>
               </div>
             </div>
-          </motion.div>
+            </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>

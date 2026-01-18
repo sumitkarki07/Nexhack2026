@@ -147,21 +147,29 @@ async function fetchFromNewsAPI(query: string): Promise<NewsArticle[]> {
       return [];
     }
 
-    return data.articles.map((article: {
-      title?: string;
-      description?: string;
-      source?: { name?: string };
-      url?: string;
-      publishedAt?: string;
-    }, index: number) => ({
-      title: article.title || 'Untitled',
-      description: article.description || '',
-      source: article.source?.name || 'Unknown',
-      url: article.url || '#',
-      publishedAt: article.publishedAt || new Date().toISOString(),
-      relevanceScore: Math.max(0.5, 1 - index * 0.1),
-      sentiment: analyzeSentiment((article.title || '') + ' ' + (article.description || '')),
-    }));
+    return data.articles
+      .filter((article: { url?: string; title?: string }) => {
+        // Only include articles with valid URLs and titles
+        return article.url && 
+               article.url.startsWith('http') && 
+               article.title && 
+               article.title.trim() !== '';
+      })
+      .map((article: {
+        title?: string;
+        description?: string;
+        source?: { name?: string };
+        url?: string;
+        publishedAt?: string;
+      }, index: number) => ({
+        title: article.title || 'Untitled',
+        description: article.description || '',
+        source: article.source?.name || 'Unknown Source',
+        url: article.url || '',
+        publishedAt: article.publishedAt || new Date().toISOString(),
+        relevanceScore: Math.max(0.5, 1 - index * 0.1),
+        sentiment: analyzeSentiment((article.title || '') + ' ' + (article.description || '')),
+      }));
   } catch (error) {
     console.error('[News] Fetch error:', error);
     return [];
@@ -169,121 +177,37 @@ async function fetchFromNewsAPI(query: string): Promise<NewsArticle[]> {
 }
 
 /**
- * Generate relevant news based on market context (fallback)
- * Uses contextual generation for demo purposes
- */
-function generateContextualNews(market: Market, query: string): NewsArticle[] {
-  const now = Date.now();
-  const terms = extractSearchTerms(market.question);
-  const yesPrice = market.outcomes[0]?.price || 0.5;
-  
-  // Generate news based on market category and current odds
-  const templates: Record<string, Array<{ title: string; description: string; source: string }>> = {
-    politics: [
-      {
-        title: `Latest polling data shows shifting dynamics in ${terms[0] || 'political'} race`,
-        description: `Recent surveys indicate changing voter sentiment, with analysts closely watching key demographics and swing regions.`,
-        source: 'Political Analysis Weekly',
-      },
-      {
-        title: `Experts weigh in on ${terms.slice(0, 2).join(' ')} outlook`,
-        description: `Political strategists offer varied perspectives on potential outcomes and factors that could influence the final result.`,
-        source: 'Election Monitor',
-      },
-      {
-        title: `Campaign developments: What to watch in coming weeks`,
-        description: `Key events and milestones that could shape the political landscape as the deadline approaches.`,
-        source: 'Capitol Report',
-      },
-    ],
-    crypto: [
-      {
-        title: `${terms[0] || 'Cryptocurrency'} market analysis: Technical outlook`,
-        description: `Analysts examine support and resistance levels, trading volume patterns, and institutional interest in the crypto market.`,
-        source: 'Crypto Insights',
-      },
-      {
-        title: `Market sentiment shifts as ${terms[0] || 'crypto'} approaches key levels`,
-        description: `Traders monitor critical price thresholds as market dynamics evolve with changing macroeconomic conditions.`,
-        source: 'Digital Asset Report',
-      },
-      {
-        title: `Regulatory developments affecting ${terms[0] || 'cryptocurrency'} markets`,
-        description: `Recent policy discussions and regulatory frameworks that could impact digital asset valuations.`,
-        source: 'Blockchain News',
-      },
-    ],
-    sports: [
-      {
-        title: `${terms[0] || 'Team'} performance analysis ahead of key matchup`,
-        description: `Sports analysts break down recent form, injury reports, and historical data for upcoming competition.`,
-        source: 'Sports Analytics',
-      },
-      {
-        title: `Betting odds shift as new information emerges`,
-        description: `Market movements reflect changing expectations based on team news and expert predictions.`,
-        source: 'Sports Betting Wire',
-      },
-    ],
-    economy: [
-      {
-        title: `Economic indicators point to ${yesPrice > 0.5 ? 'continued growth' : 'potential challenges'}`,
-        description: `Latest data releases provide insights into economic trends and their potential market implications.`,
-        source: 'Economic Times',
-      },
-      {
-        title: `${terms[0] || 'Market'} outlook: Expert forecasts and analysis`,
-        description: `Economists share perspectives on key indicators and factors driving current market expectations.`,
-        source: 'Financial Review',
-      },
-    ],
-    world: [
-      {
-        title: `International developments in ${terms.slice(0, 2).join(' ')} situation`,
-        description: `Global analysts monitor evolving geopolitical dynamics and their potential implications.`,
-        source: 'World Affairs Journal',
-      },
-      {
-        title: `Regional perspectives on ${terms[0] || 'global'} developments`,
-        description: `Experts from multiple regions weigh in on current events and likely trajectories.`,
-        source: 'International Observer',
-      },
-    ],
-  };
-
-  const categoryNews = templates[market.category] || templates.world;
-  
-  return categoryNews.map((template, index) => ({
-    ...template,
-    url: '#',
-    publishedAt: new Date(now - index * 24 * 60 * 60 * 1000).toISOString(),
-    relevanceScore: 0.9 - index * 0.15,
-    sentiment: index === 0 ? (yesPrice > 0.5 ? 'positive' : 'negative') : 'neutral',
-  }));
-}
-
-/**
  * Search for news related to a market
+ * Only returns real news articles from NewsAPI - no fake/generated news
  */
 export async function searchNews(market: Market): Promise<NewsSearchResult> {
   const query = buildSearchQuery(market);
-  console.log('[News] Searching for:', query);
+  console.log('[News] Searching for real news:', query);
 
-  let articles: NewsArticle[] = [];
+  // Only fetch from NewsAPI - no fake news fallback
+  const articles = await fetchFromNewsAPI(query);
 
-  // Try NewsAPI first
-  articles = await fetchFromNewsAPI(query);
+  // Filter out articles without valid URLs
+  const validArticles = articles.filter(article => 
+    article.url && 
+    article.url !== '#' && 
+    (article.url.startsWith('http://') || article.url.startsWith('https://'))
+  );
 
-  // Fallback to contextual generation if no results
+  if (validArticles.length === 0 && articles.length > 0) {
+    console.warn('[News] All articles filtered out - no valid URLs found');
+  }
+
   if (articles.length === 0) {
-    console.log('[News] Using contextual news generation');
-    articles = generateContextualNews(market, query);
+    console.log('[News] No news articles found. Please configure NEWS_API_KEY to get real news sources.');
+  } else {
+    console.log(`[News] Found ${validArticles.length} valid news articles with real sources`);
   }
 
   return {
-    articles: articles.slice(0, 5),
+    articles: validArticles.slice(0, 10), // Return up to 10 articles
     searchQuery: query,
-    totalResults: articles.length,
+    totalResults: validArticles.length,
     searchedAt: Date.now(),
   };
 }

@@ -274,6 +274,42 @@ function transformGammaMarket(
 }
 
 /**
+ * Calculate trending score for a market
+ * Combines volume, price change, volatility, and recency
+ */
+function calculateTrendingScore(market: Market): number {
+  const volume = market.volume || 0;
+  const priceChange = Math.abs(market.outcomes[0]?.priceChange24h || 0);
+  const volatility = priceChange; // Use absolute price change as volatility proxy
+  const volume24hr = market.volume24hr || 0;
+  
+  // Recency score (more recent = higher score)
+  const now = Date.now();
+  const updatedAt = new Date(market.updatedAt || market.createdAt || 0).getTime();
+  const hoursSinceUpdate = (now - updatedAt) / (1000 * 60 * 60);
+  const recencyScore = Math.max(0, 1 - hoursSinceUpdate / 168); // Decay over 1 week
+  
+  // Normalize and combine factors
+  // Volume: 0-1 (normalized by max expected volume of 1M)
+  const volumeScore = Math.min(1, volume / 1000000);
+  
+  // Price change: 0-1 (normalized by max expected change of 0.5 = 50%)
+  const changeScore = Math.min(1, priceChange / 0.5);
+  
+  // Volume 24h: 0-1 (normalized by max expected 24h volume of 100k)
+  const volume24hrScore = Math.min(1, volume24hr / 100000);
+  
+  // Combined trending score (weighted)
+  const trendingScore = 
+    (volumeScore * 0.3) +           // 30% volume
+    (changeScore * 0.3) +           // 30% price movement
+    (volume24hrScore * 0.2) +       // 20% recent volume
+    (recencyScore * 0.2);            // 20% recency
+  
+  return trendingScore;
+}
+
+/**
  * Map our sortBy to Gamma API sort parameters
  */
 function mapSortToGamma(sortBy: string, sortOrder: string): { sortBy: string; sortDirection: string } {
@@ -282,6 +318,7 @@ function mapSortToGamma(sortBy: string, sortOrder: string): { sortBy: string; so
     recent: 'startDate',
     change: 'oneDayPriceChange',
     volatility: 'oneDayPriceChange',
+    trending: 'volume', // Trending uses volume as base, then client-side sorting
   };
   
   return {
@@ -406,7 +443,50 @@ async function fetchMarketsFromGamma(params: MarketSearchParams): Promise<{
     });
   }
 
-  // Apply pagination to final filtered results
+  // Apply client-side sorting after filtering (important for category/search filters)
+  // This ensures correct sort order even after client-side filtering
+  markets.sort((a, b) => {
+    let comparison = 0;
+    
+    switch (sortBy) {
+      case 'trending':
+        // Trending: combination of volume, price change, and recency
+        // Higher score = more trending
+        const aTrendingScore = calculateTrendingScore(a);
+        const bTrendingScore = calculateTrendingScore(b);
+        comparison = aTrendingScore - bTrendingScore;
+        break;
+      case 'volume':
+        comparison = (a.volume || 0) - (b.volume || 0);
+        break;
+      case 'recent':
+        // Sort by most recently started/updated (startDate preferred for "recent" markets)
+        const aDate = new Date(a.startDate || a.updatedAt || a.createdAt || 0).getTime();
+        const bDate = new Date(b.startDate || b.updatedAt || b.createdAt || 0).getTime();
+        comparison = aDate - bDate;
+        break;
+      case 'volatility':
+        // Sort by absolute price change (highest volatility first)
+        const aVolatility = Math.abs(a.outcomes[0]?.priceChange24h || 0);
+        const bVolatility = Math.abs(b.outcomes[0]?.priceChange24h || 0);
+        comparison = aVolatility - bVolatility;
+        break;
+      case 'change':
+        // Sort by price change (positive changes first in desc order)
+        const aChange = a.outcomes[0]?.priceChange24h || 0;
+        const bChange = b.outcomes[0]?.priceChange24h || 0;
+        comparison = aChange - bChange;
+        break;
+      default:
+        // Default to volume
+        comparison = (a.volume || 0) - (b.volume || 0);
+    }
+    
+    // Apply sort order (desc means largest first, asc means smallest first)
+    return sortOrder === 'desc' ? -comparison : comparison;
+  });
+
+  // Apply pagination to final filtered and sorted results
   const paginatedMarkets = markets.slice(offset, offset + limit);
   const hasMore = offset + limit < markets.length;
 
@@ -572,10 +652,10 @@ export async function fetchMarkets(
       }
 
       // Optionally enrich with CLOB data for live prices
-      // Only enrich if we have few markets (to keep it fast)
-      if (result.markets.length <= 50) {
-        result.markets = await enrichWithCLOB(result.markets);
-      }
+      // Disabled for faster initial rendering - can be re-enabled if needed
+      // if (result.markets.length <= 50) {
+      //   result.markets = await enrichWithCLOB(result.markets);
+      // }
 
       return result;
     },
@@ -602,31 +682,38 @@ export async function fetchMarkets(
 
 /**
  * Fetch single market detail from Gamma API
- * Also attempts to find the parent event for proper URL generation
+ * Uses the same transformation logic as list view for data consistency
  */
 export async function fetchMarketDetail(id: string): Promise<Market | null> {
   const key = cacheKey('market', id);
 
   return singleFlight(key, async () => {
+    // Check detail cache first
     const cached = apiCache.get<Market>(key);
-    if (cached) return cached;
+    if (cached) {
+      console.log('[Polymarket] Market detail from cache:', id);
+      return cached;
+    }
 
     try {
-      // Try fetching by ID first
+      // Try fetching by ID first - use same endpoint as list view for consistency
+      // The /markets/{id} endpoint returns the same format as /markets list items
       let url = `${GAMMA_API_URL}/markets/${encodeURIComponent(id)}`;
-      console.log('[Polymarket] Fetching market detail:', url);
+      console.log('[Polymarket] Fetching market detail from API:', url);
 
       let response = await fetchWithTimeout(url);
 
       // If 404, try by slug
       if (response.status === 404) {
         url = `${GAMMA_API_URL}/markets?slug=${encodeURIComponent(id)}`;
+        console.log('[Polymarket] Trying by slug:', url);
         response = await fetchWithTimeout(url);
 
         if (response.ok) {
           const data = await response.json();
           const markets = Array.isArray(data) ? data : [data];
           if (markets.length > 0) {
+            // Use same transformation as list view - ensures exact same data structure
             const market = transformGammaMarket(markets[0]);
             apiCache.set(key, market, CACHE_TTL.MARKET_DETAIL);
             return market;
@@ -641,18 +728,10 @@ export async function fetchMarketDetail(id: string): Promise<Market | null> {
 
       const gamma: GammaMarketRaw = await response.json();
       
-      // Debug: log the raw slug data from API
-      console.log('[Polymarket] Market detail raw data:', {
-        id: gamma.id,
-        slug: gamma.slug,
-        conditionId: gamma.conditionId,
-        question: gamma.question?.substring(0, 50),
-      });
-      
+      // Use EXACT same transformation logic as list view (transformGammaMarket)
+      // This ensures categories, slugs, outcomes, and all fields match exactly
+      // No event-specific overrides that could cause differences
       const market = transformGammaMarket(gamma);
-
-      // Don't try to look up the parent event - it causes incorrect data
-      // The market's own slug should work with /event/{slug} format
 
       apiCache.set(key, market, CACHE_TTL.MARKET_DETAIL);
       return market;
@@ -980,7 +1059,7 @@ export function getPolymarketUrlAlternatives(
     urls.push(`${baseUrl}/?_q=${encodeURIComponent(question.substring(0, 100))}`);
   }
 
-  return [...new Set(urls)];
+  return Array.from(new Set(urls));
 }
 
 /**

@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Search, ArrowUpDown, TrendingUp, Clock, Activity, Zap } from 'lucide-react';
+import { Search, ArrowUpDown, TrendingUp, Clock, Activity, Zap, Flame } from 'lucide-react';
 import { Input, Button } from '@/components/ui';
 import { debounce } from '@/lib/utils';
 
-type SortOption = 'volume' | 'recent' | 'volatility' | 'change';
+type SortOption = 'volume' | 'recent' | 'volatility' | 'change' | 'trending';
 
 interface MarketSearchProps {
   onSearch: (query: string) => void;
@@ -14,6 +14,7 @@ interface MarketSearchProps {
 }
 
 const sortOptions: { id: SortOption; label: string; icon: React.ReactNode }[] = [
+  { id: 'trending', label: 'Trending', icon: <Flame size={14} /> },
   { id: 'volume', label: 'Volume', icon: <Activity size={14} /> },
   { id: 'recent', label: 'Recent', icon: <Clock size={14} /> },
   { id: 'volatility', label: 'Volatility', icon: <Zap size={14} /> },

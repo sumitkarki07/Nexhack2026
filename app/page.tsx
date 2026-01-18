@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Zap, X, Scan, RefreshCw, AlertCircle, Radio } from 'lucide-react';
 import { MarketGrid, MarketSearch, CategoryPills } from '@/components/markets';
@@ -8,14 +8,43 @@ import { ClusterBuilder, ScannerPanel } from '@/components/scanner';
 import { ResearchModal } from '@/components/research';
 import { Button, Card, Badge, Modal } from '@/components/ui';
 import { useMarkets } from '@/hooks';
-import { useStrategy } from '@/context';
+import { useStrategy, useAuth } from '@/context';
 import { Market, MarketCluster, ScannerConfig } from '@/types';
+import { detectClusterType, extractThresholds } from '@/lib/math/scanner';
+import { generateId } from '@/lib/utils';
 
 export default function MarketsPage() {
-  // Search state
+  // Auth state
+  const { user } = useAuth();
+  
+  // Search state - initialize with user interests if available
   const [query, setQuery] = useState('');
-  const [category, setCategory] = useState('all');
-  const [sortBy, setSortBy] = useState<'volume' | 'recent' | 'volatility' | 'change'>('volume');
+  const initialCategory = user?.interests && user.interests.length > 0 && !user.interests.includes('all')
+    ? user.interests[0] // Use first interest as default
+    : 'all';
+  const [category, setCategory] = useState(initialCategory);
+  const [sortBy, setSortBy] = useState<'volume' | 'recent' | 'volatility' | 'change' | 'trending'>('trending');
+
+  // Update category when user interests change (after profile setup)
+  useEffect(() => {
+    if (user?.interests && user.interests.length > 0 && !user.interests.includes('all')) {
+      setCategory(user.interests[0]);
+    }
+  }, [user?.interests]);
+
+  // Handle category selection - if "trending" is selected, change sortBy instead
+  const handleCategorySelect = useCallback((selectedCategory: string) => {
+    if (selectedCategory === 'trending') {
+      setSortBy('trending');
+      setCategory('all'); // Reset category when trending is selected
+    } else {
+      setCategory(selectedCategory);
+      // If currently sorting by trending, reset to volume when selecting a real category
+      if (sortBy === 'trending') {
+        setSortBy('volume');
+      }
+    }
+  }, [sortBy]);
 
   // Cluster mode state
   const [clusterMode, setClusterMode] = useState(false);
@@ -27,9 +56,11 @@ export default function MarketsPage() {
   const [researchMarket, setResearchMarket] = useState<Market | null>(null);
 
   // Fetch markets from live Polymarket API
+  // When trending is selected, use 'all' category but 'trending' sort
+  const effectiveCategory = sortBy === 'trending' ? 'all' : category;
   const { markets, loading, error, total, refetch, isLive } = useMarkets({
     query,
-    category,
+    category: effectiveCategory,
     sortBy,
     limit: 20,
     all: true,
@@ -54,6 +85,15 @@ export default function MarketsPage() {
     setResearchMarket(market);
     setShowResearchModal(true);
   }, []);
+
+  // Handle add/remove from cluster (toggle behavior)
+  const handleAddToCluster = useCallback((market: Market) => {
+    if (clusterMarkets.some(m => m.id === market.id)) {
+      removeFromCluster(market.id);
+    } else {
+      addToCluster(market);
+    }
+  }, [clusterMarkets, addToCluster, removeFromCluster]);
 
   // Handle scan
   const handleScan = useCallback(async (cluster: MarketCluster, config: ScannerConfig) => {
@@ -179,7 +219,7 @@ export default function MarketsPage() {
           currentSort={sortBy}
         />
         <div className="flex items-center justify-between gap-4">
-          <CategoryPills selected={category} onSelect={setCategory} />
+          <CategoryPills selected={category === 'trending' || sortBy === 'trending' ? 'trending' : category} onSelect={handleCategorySelect} />
           
           {/* Cluster mode toggle */}
           <Button
@@ -211,7 +251,10 @@ export default function MarketsPage() {
                   <Badge variant="bullish">{clusterMarkets.length}/10</Badge>
                 </div>
                 <p className="text-sm text-text-secondary mb-4">
-                  Click &quot;Add to Cluster&quot; on any market to add it. Build a cluster of related markets to scan for inefficiencies.
+                  {clusterMarkets.length === 0 
+                    ? 'Click "Add to Cluster" on any market card below to start building your cluster. Select 2+ related markets to analyze for inefficiencies.'
+                    : `Select ${clusterMarkets.length >= 2 ? 'more markets or ' : ''}click "Scan Cluster" to analyze these ${clusterMarkets.length} market${clusterMarkets.length !== 1 ? 's' : ''} for constraint violations and arbitrage opportunities.`
+                  }
                 </p>
                 
                 {/* Selected markets preview */}
@@ -237,18 +280,43 @@ export default function MarketsPage() {
                       variant="primary"
                       size="sm"
                       onClick={() => {
-                        const cluster: MarketCluster = {
-                          id: 'temp',
-                          name: 'Quick Scan',
-                          markets: clusterMarkets,
-                          clusterType: 'custom',
-                          createdAt: Date.now(),
-                        };
-                        handleScan(cluster, {} as ScannerConfig);
+                        try {
+                          const detectedType = detectClusterType(clusterMarkets);
+                          const thresholds = extractThresholds(clusterMarkets);
+                          
+                          const cluster: MarketCluster = {
+                            id: generateId(),
+                            name: `Cluster (${detectedType})`,
+                            markets: clusterMarkets,
+                            clusterType: detectedType,
+                            thresholdConfig: thresholds.length > 0 ? {
+                              variable: 'Auto-detected',
+                              thresholds: thresholds.map(t => ({
+                                marketId: t.marketId,
+                                operator: t.operator,
+                                value: t.value,
+                              })),
+                            } : undefined,
+                            createdAt: Date.now(),
+                          };
+                          
+                          handleScan(cluster, {} as ScannerConfig);
+                        } catch (error) {
+                          console.error('Error building cluster:', error);
+                          // Fallback to simple cluster
+                          const cluster: MarketCluster = {
+                            id: generateId(),
+                            name: 'Quick Scan',
+                            markets: clusterMarkets,
+                            clusterType: 'custom',
+                            createdAt: Date.now(),
+                          };
+                          handleScan(cluster, {} as ScannerConfig);
+                        }
                       }}
                     >
                       <Scan size={14} className="mr-1" />
-                      Scan Cluster
+                      Scan Cluster ({clusterMarkets.length} markets)
                     </Button>
                   )}
                   {clusterMarkets.length > 0 && (
@@ -267,9 +335,10 @@ export default function MarketsPage() {
       <MarketGrid
         markets={markets}
         loading={loading}
-        onAddToCluster={clusterMode ? addToCluster : undefined}
+        onAddToCluster={clusterMode ? handleAddToCluster : undefined}
         onResearch={handleResearch}
         showAddButtons={clusterMode}
+        selectedMarketIds={new Set(clusterMarkets.map(m => m.id))}
         sparklineData={sparklineData}
       />
 

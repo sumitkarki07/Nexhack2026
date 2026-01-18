@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { fetchMarketDetail, fetchMarketHistory, getPolymarketUrl } from '@/lib/polymarket/client';
 import { searchNews, formatNewsForPrompt, NewsArticle, NewsSearchResult } from '@/lib/news';
-import { verifyMarketResearch, VerificationResult } from '@/lib/seda';
 import { Market, PricePoint } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -68,22 +67,36 @@ function buildResearchPrompt(market: Market, priceHistory: PricePoint[], newsRes
     else if (change < -0.02) trendDescription = 'trending down slightly';
   }
 
-  const daysToEnd = Math.max(0, Math.ceil((new Date(market.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+  const endDate = new Date(market.endDate);
+  const now = Date.now();
+  const daysToEnd = Math.ceil((endDate.getTime() - now) / (1000 * 60 * 60 * 24));
+  const daysAgo = -daysToEnd; // Positive if market has ended
+  const hasEnded = endDate.getTime() < now;
+  const endedWeeksAgo = hasEnded && daysAgo >= 14;
+  const tenseInstruction = endedWeeksAgo 
+    ? 'IMPORTANT: This market ended ' + daysAgo + ' days ago. Use PAST TENSE throughout your analysis (e.g., "was priced", "had volume", "was resolved"). Refer to it as a historical market.'
+    : hasEnded 
+    ? 'NOTE: This market has ended recently. Use appropriate tense - past tense for completed events, present tense where still relevant.'
+    : 'Use present tense - this market is still active.';
+
+  const statusLabel = hasEnded ? (endedWeeksAgo ? `Ended ${daysAgo} days ago` : `Ended ${daysAgo} day${daysAgo !== 1 ? 's' : ''} ago`) : `${daysToEnd} days until resolution`;
 
   return `You are a prediction market research analyst helping users understand betting markets. Analyze the following market and provide comprehensive research.
 
 MARKET INFORMATION:
 - Question: "${market.question}"
 - Category: ${market.category}
-- Current YES Price: ${(yesPrice * 100).toFixed(1)}% (meaning the market thinks there's a ${(yesPrice * 100).toFixed(0)}% chance of YES)
+- Current YES Price: ${(yesPrice * 100).toFixed(1)}% (meaning the market ${hasEnded ? 'thought there was' : 'thinks there is'} a ${(yesPrice * 100).toFixed(0)}% chance of YES)
 - Current NO Price: ${(noPrice * 100).toFixed(1)}%
 - 24h Price Change: ${priceChange > 0 ? '+' : ''}${(priceChange * 100).toFixed(1)}%
 - Price Trend: ${trendDescription}
 - Trading Volume: $${market.volume?.toLocaleString() || 'Unknown'}
 - Liquidity: $${market.liquidity?.toLocaleString() || 'Unknown'}
-- Days Until Resolution: ${daysToEnd}
-- End Date: ${new Date(market.endDate).toLocaleDateString()}
+- Status: ${statusLabel}
+- End Date: ${endDate.toLocaleDateString()}
 ${market.description ? `- Description: ${market.description}` : ''}
+
+${tenseInstruction}
 
 RECENT NEWS & CONTEXT:
 ${formatNewsForPrompt(newsResult)}
@@ -91,20 +104,20 @@ ${formatNewsForPrompt(newsResult)}
 Provide your analysis in the following JSON format (respond ONLY with valid JSON, no markdown):
 
 {
-  "summary": "A 2-3 sentence overview of this market and its current state",
-  "whatIsThisBet": "Explain in simple terms what this bet is about, as if explaining to someone who has never heard of prediction markets",
+  "summary": "A 2-3 sentence overview of this market${endedWeeksAgo ? ' and its historical outcome' : ' and its current state'}",
+  "whatIsThisBet": "Explain in simple terms what this bet${hasEnded ? ' was' : ' is'} about, as if explaining to someone who has never heard of prediction markets",
   "keyPoints": ["Key point 1", "Key point 2", "Key point 3", "Key point 4"],
   "riskLevel": "low" | "medium" | "high",
-  "riskExplanation": "Why this risk level - consider odds, time to resolution, and market factors",
+  "riskExplanation": "Why this risk level - consider odds${hasEnded ? ' and historical context' : ', time to resolution'}, and market factors",
   "confidence": 0-100,
   "confidenceExplanation": "Explanation of confidence in this analysis",
   "prosAndCons": {
-    "pros": ["Reason to consider betting YES", "Another reason", "Third reason"],
+    "pros": ["Reason${endedWeeksAgo ? ' that historically supported' : ' to consider'} betting YES", "Another reason", "Third reason"],
     "cons": ["Risk or reason for caution", "Another risk", "Third concern"]
   },
   "keyDates": ["Important date 1 and why", "Important date 2 and why"],
-  "marketSentiment": "Describe what the current price tells us about market sentiment",
-  "recommendation": "Balanced advice for someone considering this market - not financial advice, but educational guidance",
+  "marketSentiment": "Describe what the${hasEnded ? ' final' : ' current'} price${hasEnded ? ' told' : ' tells'} us about market sentiment",
+  "recommendation": "${endedWeeksAgo ? 'Historical analysis and insights from' : 'Balanced advice for someone considering'} this market - not financial advice, but educational guidance",
   "beginnerExplanation": "A very simple 1-2 sentence explanation a complete beginner could understand"
 }
 
@@ -114,7 +127,8 @@ Important guidelines:
 - Consider both sides of the outcome
 - Highlight key risks
 - Make it accessible to beginners
-- Base analysis on the market data provided`;
+- Base analysis on the market data provided
+${endedWeeksAgo ? '- CRITICAL: Use PAST TENSE throughout (e.g., "was priced at", "had volume", "was resolved", "told us about sentiment")' : hasEnded ? '- Use past tense for completed events, present tense where still relevant' : '- Use present tense - market is still active'}`;
 }
 
 /**
@@ -162,8 +176,10 @@ function parseGeminiResponse(text: string, market: Market, newsResult: NewsSearc
       beginnerExplanation: parsed.beginnerExplanation || `This is a prediction market about: ${market.question}`,
       newsArticles: newsResult.articles,
       newsSummary: newsResult.articles.length > 0 
-        ? `Found ${newsResult.articles.length} relevant news articles about this topic.`
-        : 'No recent news articles found.',
+        ? `Found ${newsResult.articles.length} real news source${newsResult.articles.length !== 1 ? 's' : ''} with clickable links.`
+        : process.env.NEWS_API_KEY 
+          ? 'No recent news articles found for this topic.'
+          : 'News API key not configured. Add NEWS_API_KEY to environment variables to get real news sources.',
     };
   } catch (error) {
     console.error('[Research] Failed to parse Gemini response:', error);
@@ -227,8 +243,10 @@ function generateFallbackResult(market: Market, newsResult?: NewsSearchResult): 
     beginnerExplanation: `People are betting on whether "${market.question}" - currently ${(yesPrice * 100).toFixed(0)}% think it will happen.`,
     newsArticles: newsResult?.articles || [],
     newsSummary: newsResult && newsResult.articles.length > 0 
-      ? `Found ${newsResult.articles.length} relevant news articles about this topic.`
-      : 'No recent news articles found.',
+      ? `Found ${newsResult.articles.length} real news source${newsResult.articles.length !== 1 ? 's' : ''} with clickable links.`
+      : process.env.NEWS_API_KEY 
+        ? 'No recent news articles found for this topic.'
+        : 'News API key not configured. Add NEWS_API_KEY to environment variables to get real news sources.',
   };
 }
 
@@ -381,23 +399,6 @@ export async function POST(request: NextRequest) {
       result = generateFallbackResult(market, newsResult);
     }
 
-    // Step 5: Run Seda verification (continue even if it fails)
-    console.log('[Research] Running Seda verification...');
-    let verification: VerificationResult;
-    try {
-      verification = await verifyMarketResearch(market, newsResult.articles);
-      console.log(`[Research] Verification complete: ${verification.overallStatus}`);
-    } catch (error) {
-      console.error('[Research] Failed to verify:', error);
-      // Continue with unverified status
-      verification = {
-        overallStatus: 'unverified',
-        verifiedSources: [],
-        flaggedClaims: [],
-        summary: 'Verification unavailable',
-      };
-    }
-
     return NextResponse.json({
       success: true,
       market: {
@@ -412,7 +413,6 @@ export async function POST(request: NextRequest) {
         slug: market.slug,
       },
       research: result,
-      verification,
       generatedAt: Date.now(),
     });
   } catch (error) {

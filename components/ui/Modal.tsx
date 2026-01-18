@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 
@@ -20,7 +21,7 @@ function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
     xl: 'max-w-4xl',
   };
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
         <Fragment>
@@ -30,11 +31,12 @@ function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            style={{ zIndex: 9999 }}
           />
           
           {/* Modal */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 10000 }}>
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -43,8 +45,9 @@ function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
               className={`
                 w-full ${sizes[size]}
                 bg-surface border border-border rounded-xl
-                shadow-2xl overflow-hidden
+                shadow-2xl overflow-hidden relative
               `}
+              style={{ zIndex: 10001 }}
             >
               {/* Header */}
               {title && (
@@ -60,7 +63,7 @@ function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
               )}
               
               {/* Content */}
-              <div className="px-6 py-4 max-h-[calc(100vh-200px)] overflow-y-auto">
+              <div className="px-6 py-4 max-h-[calc(100vh-120px)] overflow-y-auto">
                 {children}
               </div>
             </motion.div>
@@ -69,6 +72,13 @@ function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
       )}
     </AnimatePresence>
   );
+
+  // Use portal to render at document body level, avoiding stacking context issues
+  if (typeof window !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+
+  return modalContent;
 }
 
 export { Modal };

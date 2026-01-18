@@ -1,6 +1,7 @@
 import type { Config } from 'tailwindcss';
 
 const config: Config = {
+  darkMode: 'class', // Enable class-based dark mode
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -9,11 +10,11 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: '#09090b',
-        surface: '#18181b',
-        border: '#27272a',
-        'text-primary': '#fafafa',
-        'text-secondary': '#a1a1aa',
+        background: 'var(--bg-background)',
+        surface: 'var(--bg-surface)',
+        border: 'var(--bg-border)',
+        'text-primary': 'var(--text-primary)',
+        'text-secondary': 'var(--text-secondary)',
         bullish: {
           DEFAULT: '#2563eb',
           hover: '#3b82f6',

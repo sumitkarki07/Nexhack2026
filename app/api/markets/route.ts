@@ -5,7 +5,7 @@ import { fetchMarkets, clearCache } from '@/lib/polymarket/client';
 const searchParamsSchema = z.object({
   query: z.string().optional(),
   category: z.string().optional(),
-  sortBy: z.enum(['volume', 'recent', 'volatility', 'change']).optional(),
+  sortBy: z.enum(['volume', 'recent', 'volatility', 'change', 'trending']).optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
   limit: z.coerce.number().min(1).max(100).optional(),
   offset: z.coerce.number().min(0).optional(),

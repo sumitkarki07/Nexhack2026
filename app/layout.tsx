@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { Header, Footer } from '@/components/layout';
+import { Header, Footer, SplashScreen } from '@/components/layout';
 import { ToastProvider } from '@/components/ui';
-import { StrategyProvider } from '@/context';
+import { StrategyProvider, ThemeProvider, AuthProvider } from '@/context';
+import { AuthGuard } from '@/components/auth/AuthGuard';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -28,17 +29,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} min-h-screen bg-background text-text-primary`}>
-        <ToastProvider>
-          <StrategyProvider>
-            <div className="flex flex-col min-h-screen">
-              <Header />
-              <main className="flex-1 pt-16">{children}</main>
-              <Footer />
-            </div>
-          </StrategyProvider>
-        </ToastProvider>
+        <SplashScreen />
+        <ThemeProvider>
+          <AuthProvider>
+            <ToastProvider>
+              <StrategyProvider>
+                <AuthGuard>
+                  <div className="flex flex-col min-h-screen">
+                    <Header />
+                    <main className="flex-1 pt-16">{children}</main>
+                    <Footer />
+                  </div>
+                </AuthGuard>
+              </StrategyProvider>
+            </ToastProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

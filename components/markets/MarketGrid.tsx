@@ -10,6 +10,7 @@ interface MarketGridProps {
   onAddToCluster?: (market: Market) => void;
   onResearch?: (market: Market) => void;
   showAddButtons?: boolean;
+  selectedMarketIds?: Set<string>; // Track selected markets for cluster
   sparklineData?: Record<string, number[]>;
 }
 
@@ -19,6 +20,7 @@ export function MarketGrid({
   onAddToCluster,
   onResearch,
   showAddButtons = false,
+  selectedMarketIds = new Set(),
   sparklineData = {},
 }: MarketGridProps) {
   if (loading) {
@@ -50,6 +52,7 @@ export function MarketGrid({
           onAddToCluster={onAddToCluster}
           onResearch={onResearch}
           showAddButton={showAddButtons}
+          isInCluster={selectedMarketIds.has(market.id)}
           index={index}
         />
       ))}
